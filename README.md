@@ -1,24 +1,43 @@
 # Campus Navigator
 
-Indoor navigation for the campus based on radio and sensor fingerprints (Wi-Fi, Bluetooth LE, magnetic field, barometer).
-Current stage: a scanner app that shows and records everything the phone can sense.
+Indoor navigation for the campus: 2D floor plans and routes between any two rooms, working offline.
+Current stage: one made-up test floor with routing (Map tab), plus the signal scanner kept for later Wi-Fi positioning.
 
 ## Repository layout
 
 ```
 apps/
   mobile/              React Native (Expo) app: screens, navigation, UI kit
+    src/map/           FloorMap (plan, zoom, route line) and PlacePicker
 packages/
+  map/                 Map core: data model, graph, A* routing, steps, test building. Pure TypeScript
   core/                Scanning core: Wi-Fi, BLE, sensors, recording, mock data
   wifi-scanner/        Native Android module (Kotlin) for Wi-Fi scans
 ```
 
 | Area | Folder | What lives there |
 | --- | --- | --- |
-| Core | `packages/core`, `packages/wifi-scanner` | Scanners, permissions, data recording, signal processing, native code |
+| Core | `packages/map`, `packages/core`, `packages/wifi-scanner` | Map data and routing, scanners, native code |
 | UI | `apps/mobile` | Screens, components, styling, navigation |
 
-### The contract
+### Map core
+
+The UI uses `@campus/map` (`packages/map/src/index.ts`):
+
+```ts
+import { testBuilding, listPlaces, planRoute, describeStep } from '@campus/map';
+
+const { snapshot, svgByFloor } = testBuilding;           // floors, nodes, edges, rooms + SVG plans
+const route = planRoute(snapshot, fromNodeId, toNodeId, 'fastest'); // or 'accessible' (no stairs)
+route?.steps.map((s) => describeStep(s));                 // "Go straight 20 m", "Turn right", ...
+```
+
+- Data shapes are in [`packages/map/src/types.ts`](packages/map/src/types.ts).
+- Coordinates are meters from the top-left corner of the plan; the SVG `viewBox` is `0 0 widthM heightM`.
+- Plans are drawn in two colors (walls `#2B2B2B`, rooms `#ECEBE7`); the app recolors them to the theme.
+- The test floor is in [`packages/map/src/data/testBuilding.ts`](packages/map/src/data/testBuilding.ts).
+
+### Scanner contract
 
 The UI talks to the core **only** through `@campus/core` (`packages/core/src/index.ts`):
 
@@ -66,6 +85,7 @@ To force a mode, set `EXPO_PUBLIC_SCANNER_MODE=mock` or `EXPO_PUBLIC_SCANNER_MOD
 
 ```bash
 npm run typecheck    # all workspaces
+npm test             # routing tests (packages/map)
 ```
 
 ## Platform notes
