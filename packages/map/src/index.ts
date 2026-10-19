@@ -9,3 +9,4 @@ export { describeStep } from './describe';
 export { PLAN_ROOM_COLOR, PLAN_WALL_COLOR } from './data/planColors';
 export { testBuilding } from './data/testBuilding';
 export { hamkC2 } from './data/hamkC2';
+export { buildingC } from './data/buildingC';

@@ -1,6 +1,7 @@
 /**
  * Map data model shared by the app and (later) the server.
- * Coordinates are meters from the top-left corner of the floor plan, so route lengths come out in meters.
+ * Coordinates use the floor's declared units from the top-left of its plan.
+ * Legacy size and cost field names contain M; schematic data is not metric.
  */
 
 export type NodeType = 'corridor' | 'door' | 'stairs' | 'elevator' | 'entrance';
@@ -25,6 +26,8 @@ export interface Floor {
   svgUrl: string;
   widthM: number;
   heightM: number;
+  /** Defaults to meters for older bundles. Drawing units have no physical scale. */
+  coordinateUnit?: 'meters' | 'drawing';
 }
 
 export interface MapNode {
@@ -59,6 +62,8 @@ export interface Room {
   tags: string[];
   /** Where the app draws the room code on the plan. */
   labelAt?: { x: number; y: number };
+  /** Optional map-unit font size for narrow room shapes. */
+  labelSize?: number;
 }
 
 /** Full copy of one building's map data. */
@@ -99,6 +104,7 @@ export type RouteStep =
 
 export interface Route {
   nodeIds: string[];
+  /** Graph cost including transfer penalties; not physical meters on a schematic. */
   lengthM: number;
   mode: RouteMode;
   segments: RouteSegment[];
