@@ -7,14 +7,14 @@ import { PlacePicker } from '../map/PlacePicker';
 import { colors, styles as kit } from '../ui/kit';
 import { useMapBundle } from '../data/MapDataProvider';
 
-const WALKING_SPEED_M_PER_S = 1.3;
+
 
 export function MapScreen() {
   const bundle = useMapBundle();
   const { snapshot, svgByFloor } = bundle;
   const places = useMemo(() => listPlaces(snapshot), [snapshot]);
 
-  const [from, setFrom] = useState<Place | undefined>(() => places.find((p) => p.kind === 'entrance'));
+  const [from, setFrom] = useState<Place | undefined>();
   const [to, setTo] = useState<Place | undefined>();
   const [mode, setMode] = useState<RouteMode>('fastest');
   const [picking, setPicking] = useState<'from' | 'to' | null>(null);
@@ -55,13 +55,11 @@ export function MapScreen() {
       </View>
 
       <View style={styles.modes}>
-        <Chip title="Fastest" active={mode === 'fastest'} onPress={() => setMode('fastest')} />
-        <Chip title="No stairs" active={mode === 'accessible'} onPress={() => setMode('accessible')} />
         {snapshot.floors.length > 1
           ? snapshot.floors.map((f) => (
               <Chip
                 key={f.id}
-                title={`${f.level}${routeFloors.has(f.id) ? ' •' : ''}`}
+                title={`Floor ${f.level}${routeFloors.has(f.id) ? ' •' : ''}`}
                 active={f.id === floorId}
                 onPress={() => setFloorId(f.id)}
               />
@@ -172,11 +170,11 @@ function RoutePanel({
       </View>
     );
   }
-  const minutes = Math.max(1, Math.round(lengthM / WALKING_SPEED_M_PER_S / 60));
+
   return (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>
-        {Math.round(lengthM)} m · about {minutes} min
+        Schematic route preview
       </Text>
       <ScrollView style={{ maxHeight: 140 }}>
         {steps.map((s, i) => (
@@ -231,3 +229,4 @@ const styles = StyleSheet.create({
   panelTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 },
   step: { color: colors.text, fontSize: 14, paddingVertical: 2 },
 });
+
