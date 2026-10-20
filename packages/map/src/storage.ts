@@ -1,4 +1,5 @@
 import type { Building, Edge, Floor, MapBundle, MapNode, Room } from './types';
+import { assertMapBundle } from './validate';
 
 /** Minimal async SQLite interface implemented by Expo SQLite on Android. */
 export interface MapDatabase {
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS map_rooms (
  * No user data is stored in these replaceable map tables.
  */
 export async function loadStoredMap(db: MapDatabase, seed: MapBundle): Promise<MapBundle> {
+  assertMapBundle(seed);
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   await db.execAsync(SCHEMA);
   // The canonical seed is the revision token, avoiding stale assets if a manual
@@ -60,7 +62,7 @@ export async function loadStoredMap(db: MapDatabase, seed: MapBundle): Promise<M
   const floors = await db.getAllAsync<{ id: string; payload: string; svg: string }>('SELECT id, payload, svg FROM map_floors ORDER BY rowid');
   const readPayloads = async <T>(table: 'map_nodes' | 'map_edges' | 'map_rooms'): Promise<T[]> =>
     (await db.getAllAsync<{ payload: string }>(`SELECT payload FROM ${table} ORDER BY rowid`)).map((row) => JSON.parse(row.payload) as T);
-  return {
+  const bundle: MapBundle = {
     snapshot: {
       building: JSON.parse(buildingRows[0].value) as Building,
       floors: floors.map((row) => JSON.parse(row.payload) as Floor),
@@ -70,4 +72,6 @@ export async function loadStoredMap(db: MapDatabase, seed: MapBundle): Promise<M
     },
     svgByFloor: Object.fromEntries(floors.map((row) => [row.id, row.svg])),
   };
+  assertMapBundle(bundle);
+  return bundle;
 }
