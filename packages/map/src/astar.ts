@@ -11,21 +11,17 @@ export interface PathResult {
 
 /**
  * A* shortest path over the whole building graph.
- * The heuristic is the planar distance plus the cheapest possible cost of changing floors,
- * so it never overestimates and the result is exact. Returns null when the goal is unreachable.
+ * Uses a zero heuristic so independent floor drawings cannot overestimate cost.
+ * Returns null when the goal is unreachable.
  */
 export function findPath(graph: Graph, startId: string, goalId: string): PathResult | null {
   const goal = graph.nodes.get(goalId);
   if (!goal || !graph.nodes.has(startId)) return null;
   if (startId === goalId) return { nodeIds: [startId], lengthM: 0 };
 
-  const goalLevel = graph.levels.get(goal.floorId) ?? 0;
-  const floorCost = graph.mode === 'accessible' ? ELEVATOR_WEIGHT : STAIRS_WEIGHT_PER_FLOOR;
-  const heuristic = (id: string) => {
-    const n = graph.nodes.get(id)!;
-    const level = graph.levels.get(n.floorId) ?? 0;
-    return Math.hypot(n.x - goal.x, n.y - goal.y) + floorCost * Math.abs(level - goalLevel);
-  };
+  // Floor drawings may have different origins; lifts can skip several floors.
+  // Dijkstra ordering remains exact for both cases on this small offline graph.
+  const heuristic = (_id: string) => 0;
 
   const cost = new Map<string, number>([[startId, 0]]);
   const cameFrom = new Map<string, string>();
