@@ -1,75 +1,116 @@
 # Campus Navigator
 
-Indoor navigation for the campus based on radio and sensor fingerprints (Wi-Fi, Bluetooth LE, magnetic field, barometer).
-Current stage: a scanner app that shows and records everything the phone can sense.
+An offline Android indoor navigation MVP for three floors of HAMK Building C.
+Choose a starting place and destination, search rooms, and inspect a route across
+floors. The application does not determine or track your location.
 
-## Repository layout
+## MVP scope
 
-```
-apps/
-  mobile/              React Native (Expo) app: screens, navigation, UI kit
-packages/
-  core/                Scanning core: Wi-Fi, BLE, sensors, recording, mock data
-  wifi-scanner/        Native Android module (Kotlin) for Wi-Fi scans
-```
+- Three bundled floor traces based on the supplied photographs, including the curved auditoriums.
+- Manual start and destination selection, room search, pan, zoom, and fit view.
+- Directions collapsed by default, with a larger expandable step list.
+- Local shortest-path routing with staircase transitions and selectable steps.
+- SQLite storage for floor plans, nodes, edges, rooms, and map revision metadata.
+- English interface, documentation, and new code comments.
 
-| Area | Folder | What lives there |
-| --- | --- | --- |
-| Core | `packages/core`, `packages/wifi-scanner` | Scanners, permissions, data recording, signal processing, native code |
-| UI | `apps/mobile` | Screens, components, styling, navigation |
+Saved rooms, QR scanning, cloud sync, notes, accounts, an admin editor, route
+history, and automatic positioning are deferred. A lift is visible in the source
+photographs but no accessible route is advertised until its access is verified.
 
-### The contract
+The map scale and door anchors are provisional. The UI deliberately omits meter
+distances and walking times. Read [map verification](docs/MAP-VERIFICATION.md)
+before relying on the routes in the building. C323 is not routable because its
+access is unclear; C304-305 is one combined place searchable by either number.
 
-The UI talks to the core **only** through `@campus/core` (`packages/core/src/index.ts`):
+## Setup
 
-```tsx
-import { useScanSnapshot, useScanner } from '@campus/core';
-
-const { wifi, ble, sensors, recorder, mode } = useScanSnapshot(); // live data, re-renders ~3x per second
-const scanner = useScanner(); // actions: startRecording, stopRecording, listRecordings, restartBleScan, ...
-```
-
-- All data shapes are in [`packages/core/src/types.ts`](packages/core/src/types.ts). Start there.
-- Deep imports like `@campus/core/src/device/...` are blocked by the package `exports` field.
-- Changing `types.ts` affects both sides: agree on it first, then change it in one commit.
-
-## Getting started
-
-Requirements: Node 20+, Git. For the real scanner also JDK 17 and the Android SDK.
+Use Node.js 24 LTS and npm for the included real SQLite tests. Install from the
+repository root:
 
 ```bash
-npm install          # always from the repository root
+npm ci
+npm run mobile:mock
 ```
 
-### UI work with mock data (no Android build needed)
+The historical `mobile:mock` command opens Expo Go; map data is the Building C
+dataset, not simulated positioning. Use an Expo Go version compatible with the
+pinned Expo SDK 57, or build the development client below. The repository keeps
+the original Android application ID to allow updating an existing installation.
 
-1. Install **Expo Go** on your phone.
-2. Run:
-   ```bash
-   npm run mobile:mock
-   ```
-3. Scan the QR code with Expo Go.
-
-The core detects Expo Go and switches to mock mode automatically. You get realistic fake Wi-Fi networks, BLE devices and beacons, and sensor values. The header shows `MOCK DATA`. All screens and recording actions work the same way as with the real scanner.
-
-### Real scanning (Android phone over USB)
+For an Android development build, install JDK 17 and the Android SDK, enable USB
+debugging on the phone, and authorize the computer:
 
 ```bash
 npm run mobile:android
 ```
 
-This builds a development build with the native modules, installs it on the connected phone and starts Metro. The first build takes about 10 minutes.
-
-To force a mode, set `EXPO_PUBLIC_SCANNER_MODE=mock` or `EXPO_PUBLIC_SCANNER_MODE=device` in `apps/mobile/.env.local`.
-
-## Checks
+For a standalone Android build that embeds JavaScript for offline startup:
 
 ```bash
-npm run typecheck    # all workspaces
+cd apps/mobile
+npx expo run:android --variant release --device
 ```
 
-## Platform notes
+Local release builds use the generated project's signing defaults. Configure a
+private signing key before public distribution. No store submission is required
+for the project demonstration. A development client needs Metro and is not the
+artifact to use to prove first-launch offline operation.
 
-- **iOS** does not allow third-party apps to scan Wi-Fi. On iOS only BLE and sensors will work.
-- **Android** limits Wi-Fi scans to about 4 per 2 minutes. For testing, disable it in Settings → Developer options → Wi-Fi scan throttling.
-- Wi-Fi and BLE scanning on Android require location permission and location services turned on.
+## Verification
+
+From the repository root:
+
+```bash
+npm run typecheck
+npm test
+npm run lint --workspace apps/mobile
+```
+
+Android JavaScript and Hermes compilation can be checked independently of an APK:
+
+```bash
+cd apps/mobile
+npx expo export --platform android --output-dir dist
+```
+
+Tests include all room-pair path costs against Floyd-Warshall, all floor pairs,
+invalid graph data, SQLite reopen, map replacement, and rollback of an interrupted
+update. SQLite tests use Node's real SQLite engine through the same SQL interface;
+they do not replace Android runtime tests. Follow the [device checklist](docs/ANDROID-CHECKLIST.md).
+
+## Architecture and ownership
+
+| Area | Owner | Location |
+| --- | --- | --- |
+| Map data, graph, route search, validation, SQL repository | Core | `packages/map` |
+| Local SQLite loading and UI data boundary | Core | `apps/mobile/src/data` |
+| App configuration, entry, manifests, lockfile | Core | Application and root configuration |
+| Screen layout, floor controls, search, route presentation | UI | `apps/mobile/src/app`, `src/screens/MapScreen.tsx` |
+| SVG rendering, gestures, place picker, visual tokens | UI | `apps/mobile/src/map`, `src/ui` |
+
+The [public contract](docs/CORE-CONTRACT.md) keeps visual components independent
+of persistence. The provider opens SQLite, atomically seeds changed bundled data,
+reads the map back, validates it, and closes the connection. Components mount only
+after successful loading; failures expose a retry action. No network is required.
+
+Map tables contain IDs and relational references plus JSON payloads preserving
+the domain types. Prepared parameter bindings are used for writes. A canonical
+seed revision detects changes even if a manual data version bump is forgotten.
+Replacing these tables never deletes user content because the MVP stores none.
+
+Path search uses A* with a zero heuristic (Dijkstra ordering). This remains exact
+when independent floor drawings use different coordinate origins. Route costs
+are drawing units plus transfer penalties, not physical distance estimates.
+
+## Retained prototype
+
+`packages/core`, `packages/wifi-scanner`, and the old scanner screen files remain
+as deferred prototype code. They are not imported by the MVP entry or initialized
+at launch. Location and Bluetooth permissions are explicitly blocked in generated
+Android manifests. Existing scanner subscription lint handling is scoped to its
+retained file; map gesture shared values have a documented Reanimated exception.
+
+The four review stages and eight owner-specific archives are delivered alongside
+the repository in `MVP-Delivery`. They contain review material and cumulative owned
+changes, not pre-authored Git commits. Review and adapt the work before committing
+it with accurate contributor attribution.

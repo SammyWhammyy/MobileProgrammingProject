@@ -2,15 +2,18 @@ import { ScannerProvider, useScanner, useScanSnapshot, type ScannerMode } from '
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { BleScreen } from './src/screens/BleScreen';
+import { MapScreen } from './src/screens/MapScreen';
 import { RecordScreen } from './src/screens/RecordScreen';
 import { SensorsScreen } from './src/screens/SensorsScreen';
 import { WifiScreen } from './src/screens/WifiScreen';
 import { Button, Card, colors, Muted } from './src/ui/kit';
 
 const TABS = [
+  { key: 'map', title: 'Map', Screen: MapScreen },
   { key: 'wifi', title: 'Wi-Fi', Screen: WifiScreen },
   { key: 'ble', title: 'BLE', Screen: BleScreen },
   { key: 'sensors', title: 'Sensors', Screen: SensorsScreen },
@@ -23,20 +26,20 @@ const SCANNER_MODE = process.env.EXPO_PUBLIC_SCANNER_MODE as ScannerMode | undef
 function Shell() {
   const scanner = useScanner();
   const { mode, permissions, recorder } = useScanSnapshot();
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('wifi');
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('map');
   const Screen = TABS.find((t) => t.key === tab)!.Screen;
 
   return (
     <SafeAreaView style={local.root} edges={['top', 'bottom']}>
       <View style={local.header}>
-        <Text style={local.title}>Campus Navigator · Scanner</Text>
+        <Text style={local.title}>Campus Navigator</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {mode === 'mock' ? <Text style={local.mock}>MOCK DATA</Text> : null}
           {recorder.active ? <Text style={local.rec}>● REC</Text> : null}
         </View>
       </View>
 
-      {permissions.requested && !permissions.allGranted ? (
+      {tab !== 'map' && permissions.requested && !permissions.allGranted ? (
         <View style={{ paddingHorizontal: 12 }}>
           <Card title="Missing permissions">
             <Muted>
@@ -65,12 +68,14 @@ function Shell() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <ScannerProvider mode={SCANNER_MODE}>
-        <Shell />
-      </ScannerProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <ScannerProvider mode={SCANNER_MODE}>
+          <Shell />
+        </ScannerProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
