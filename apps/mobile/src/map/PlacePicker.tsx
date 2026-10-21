@@ -1,6 +1,6 @@
 import { searchPlaces, type Place, type Snapshot } from '@campus/map';
 import { useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, colors, styles as kit } from '../ui/kit';
@@ -25,11 +25,12 @@ export function PlacePicker({
   const results = useMemo(() => searchPlaces(snapshot, places, query), [snapshot, places, query]);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={() => { setQuery(''); onClose(); }}>
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
-          <Button title="Close" kind="ghost" onPress={onClose} />
+          <Button title="Close" kind="ghost" onPress={() => { setQuery(''); onClose(); }} />
         </View>
         <TextInput
           value={query}
@@ -38,6 +39,8 @@ export function PlacePicker({
           placeholderTextColor={colors.muted}
           autoFocus
           autoCorrect={false}
+          autoCapitalize="characters"
+          accessibilityLabel="Search rooms and places"
           style={styles.input}
         />
         <FlatList
@@ -45,9 +48,11 @@ export function PlacePicker({
           keyExtractor={(p) => p.id}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 12 }}
-          ListEmptyComponent={<Text style={kit.muted}>Nothing found for &quot;{query}&quot;</Text>}
+          ListEmptyComponent={<Text style={kit.muted}>{`No places found for “${query}”. Try another room code or name.`}</Text>}
           renderItem={({ item }) => (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}, ${item.subtitle}`}
               style={({ pressed }) => [kit.listItem, { opacity: pressed ? 0.6 : 1 }]}
               onPress={() => {
                 setQuery('');
@@ -59,6 +64,7 @@ export function PlacePicker({
             </Pressable>
           )}
         />
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

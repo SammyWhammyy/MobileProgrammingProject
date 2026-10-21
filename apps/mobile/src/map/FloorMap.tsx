@@ -51,13 +51,15 @@ export interface FloorMapProps {
   goalNodeId?: string;
   /** Changing this value resets zoom and pan to fit the whole floor. */
   fitKey?: unknown;
+  /** Inspect a step without implying live user location. */
+  focusNodeId?: string;
 }
 
 /**
  * One floor plan with room labels and the route drawn on top.
  * Pinch to zoom (0.5x–6x) around the fingers, drag with inertia, double tap to zoom in 2x.
  */
-export function FloorMap({ snapshot, floor, svg, route, startNodeId, goalNodeId, fitKey }: FloorMapProps) {
+export function FloorMap({ snapshot, floor, svg, route, startNodeId, goalNodeId, fitKey, focusNodeId }: FloorMapProps) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const onLayout = (e: LayoutChangeEvent) =>
     setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
@@ -77,10 +79,12 @@ export function FloorMap({ snapshot, floor, svg, route, startNodeId, goalNodeId,
   const pinching = useSharedValue(false);
 
   useEffect(() => {
-    scale.value = withTiming(1, { duration: 250 });
-    tx.value = withTiming(0, { duration: 250 });
-    ty.value = withTiming(0, { duration: 250 });
-  }, [fitKey, floor.id, scale, tx, ty]);
+    const point = snapshot.nodes.find((node) => node.id === focusNodeId && node.floorId === floor.id);
+    const zoom = point ? 2 : 1;
+    scale.value = withTiming(zoom, { duration: 250 });
+    tx.value = withTiming(point ? (floor.widthM / 2 - point.x) * pxPerM * zoom : 0, { duration: 250 });
+    ty.value = withTiming(point ? (floor.heightM / 2 - point.y) * pxPerM * zoom : 0, { duration: 250 });
+  }, [fitKey, focusNodeId, snapshot, floor.id, floor.widthM, floor.heightM, pxPerM, scale, tx, ty]);
 
   const gesture = useMemo(() => {
     const cx = size.w / 2;
@@ -182,6 +186,13 @@ export function FloorMap({ snapshot, floor, svg, route, startNodeId, goalNodeId,
 
   const start = startNodeId ? nodes.get(startNodeId) : undefined;
   const goal = goalNodeId ? nodes.get(goalNodeId) : undefined;
+  // An intermediate floor may contain only a landing between two stair edges.
+  // Mark transfer endpoints even when there is no horizontal line to draw.
+  const transfers = route ? [...new Set(route.segments
+    .filter((segment) => segment.floorId === floor.id)
+    .flatMap((segment) => [segment.nodeIds[0], segment.nodeIds.at(-1)]))]
+    .map((id) => id ? nodes.get(id) : undefined)
+    .filter((node) => node && (node.type === 'stairs' || node.type === 'elevator')) : [];
   const viewBox = `0 0 ${floor.widthM} ${floor.heightM}`;
 
   return (
@@ -203,7 +214,7 @@ export function FloorMap({ snapshot, floor, svg, route, startNodeId, goalNodeId,
                   x={r.labelAt!.x}
                   y={r.labelAt!.y}
                   fill={mapColors.label}
-                  fontSize={floor.widthM / 40}
+                  fontSize={r.labelSize ?? floor.widthM / (r.code.length > 5 ? 55 : 40)}
                   fontWeight="600"
                   textAnchor="middle"
                   alignmentBaseline="middle"
@@ -221,6 +232,10 @@ export function FloorMap({ snapshot, floor, svg, route, startNodeId, goalNodeId,
                   animatedProps={routeProps}
                 />
               ) : null}
+              {transfers.map((node) => node && (
+                <AnimatedCircle key={node.id} cx={node.x} cy={node.y}
+                  fill={colors.card} stroke={mapColors.route} animatedProps={markerProps} />
+              ))}
               {start && start.floorId === floor.id ? (
                 <AnimatedCircle
                   cx={start.x}

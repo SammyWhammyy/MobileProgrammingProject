@@ -1,5 +1,18 @@
 # MVP validation record
 
+## Final branch integration, 21 October 2026
+
+- Integrated the Core `dev1` workstream and the corrected `Sam` UI workstream.
+- Removed duplicate router files from `src/ui`; routes live in `src/app`.
+- Resolved overlapping UI files using the final reviewed UI checkpoint.
+- Confirmed all checkpoint source files match stage 4 after Git line-ending normalization.
+- Workspace TypeScript checks, mobile ESLint, and all 25 automated tests passed.
+- Android export and Hermes compilation passed with 1809 modules. The first
+  sandboxed attempt could not write its temporary bytecode file; the rerun with
+  the required filesystem access passed.
+- The device observations below describe the earlier integrated candidate. Repeat
+  Android interaction and standalone first-launch offline checks on the final build.
+
 Validation date: 19 October 2026.
 
 | Check | Result |
