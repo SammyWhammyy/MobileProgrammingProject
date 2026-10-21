@@ -11,9 +11,11 @@ floors. The application does not determine or track your location.
 - Directions collapsed by default, with a larger expandable step list.
 - Local shortest-path routing with staircase transitions and selectable steps.
 - SQLite storage for floor plans, nodes, edges, rooms, and map revision metadata.
+- Room notes with full SQLite CRUD: create, list/read, edit, and delete.
+- Separate map, notes list, and note editor routes with Android Back support.
 - English interface, documentation, and new code comments.
 
-Saved rooms, QR scanning, cloud sync, notes, accounts, an admin editor, route
+Saved rooms, QR scanning, cloud sync, accounts, an admin editor, route
 history, and automatic positioning are deferred. A lift is visible in the source
 photographs but no accessible route is advertised until its access is verified.
 
@@ -75,7 +77,8 @@ npx expo export --platform android --output-dir dist
 
 Tests include all room-pair path costs against Floyd-Warshall, all floor pairs,
 invalid graph data, SQLite reopen, map replacement, and rollback of an interrupted
-update. SQLite tests use Node's real SQLite engine through the same SQL interface;
+update. Room-note tests also cover full CRUD, reopen persistence, validation,
+missing records, and safe parameter binding. SQLite tests use Node's real SQLite engine through the same SQL interface;
 they do not replace Android runtime tests. Follow the [device checklist](docs/ANDROID-CHECKLIST.md).
 
 ## Architecture and ownership
@@ -96,7 +99,32 @@ after successful loading; failures expose a retry action. No network is required
 Map tables contain IDs and relational references plus JSON payloads preserving
 the domain types. Prepared parameter bindings are used for writes. A canonical
 seed revision detects changes even if a manual data version bump is forgotten.
-Replacing these tables never deletes user content because the MVP stores none.
+User-authored notes live in a separate `campus-notes.db` database. Replacing map
+tables never deletes notes.
+
+## Room notes and screen navigation
+
+Open **Room notes** from the map header. Select **New note**, choose a room,
+enter a title and text, then tap **Save**. Open the saved card to read the full
+text or edit the room, title, and body. **Delete note** asks for confirmation.
+The list reloads from SQLite when the editor returns. Android Back and the Back
+button ask before discarding unsaved edits. Failed writes keep the draft open.
+
+Routes live under `apps/mobile/src/app`: `/` is the map, `/notes` is the list,
+and `/notes/edit` creates a note or reads an existing note by its ID parameter.
+Notes use `INSERT`, `SELECT`, `UPDATE`, and `DELETE` in
+`packages/map/src/notes.ts`. `NoteCard` is a reusable custom React Native
+component. The repository validates required text, character limits and room
+references, and binds every user value as an SQL parameter.
+
+The notes table stores `id`, `roomId`, `title`, `body`, `createdAt`, and
+`updatedAt`. Notes survive app restarts and map reseeding. Uninstalling the app
+or clearing app data removes local notes. A room removed by a future map update
+does not delete its notes: the editor asks for a new room before saving.
+
+See [grade 3 evidence](docs/GRADE-3-EVIDENCE.md) for the course criteria mapping
+and a short CRUD demonstration. Meeting technical criteria does not guarantee
+a particular grade; the instructor also assesses UI, complexity, and understanding.
 
 Path search uses A* with a zero heuristic (Dijkstra ordering). This remains exact
 when independent floor drawings use different coordinate origins. Route costs
