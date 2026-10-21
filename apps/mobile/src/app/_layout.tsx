@@ -11,11 +11,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <MapDataProvider>
           <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="notes/index" />
-            <Stack.Screen name="notes/edit" options={{ gestureEnabled: false }} />
-          </Stack>
+          <Stack screenOptions={{ headerShown: false }} />
         </MapDataProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

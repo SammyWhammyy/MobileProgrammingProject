@@ -12,5 +12,3 @@ export { hamkC2 } from './data/hamkC2';
 export { buildingC } from './data/buildingC';
 export { loadStoredMap, type MapDatabase } from './storage';
 export { assertMapBundle } from './validate';
-export { initializeNotes, createNotesRepository, NOTE_TITLE_LIMIT, NOTE_BODY_LIMIT,
-  type RoomNote, type NoteInput, type NotesDatabase, type NotesRepository } from './notes';

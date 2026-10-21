@@ -1,18 +1,5 @@
 # MVP validation record
 
-## SQLite CRUD extension, 21 October 2026
-
-- Added Room notes list and editor routes, reachable from the map header.
-- Added parameterized Create, Read, Update, and Delete operations in a separate
-  `campus-notes.db` database, with room and text validation.
-- Added a reusable `NoteCard` component, delete confirmation, unsaved-edit Back
-  confirmation, loading/error/retry states, and list refresh on return.
-- Workspace TypeScript, mobile ESLint, and 31 tests in four files passed.
-- Android/Hermes export passed with 1814 modules.
-- No Android phone was attached during this extension check. CRUD interaction,
-  keyboard behavior, Android Back and standalone offline startup still require
-  the updated device checklist. Earlier phone observations below predate notes.
-
 ## Final branch integration, 21 October 2026
 
 - Integrated the Core `dev1` workstream and the corrected `Sam` UI workstream.
