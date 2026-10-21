@@ -1,4 +1,4 @@
-﻿import { useScanSnapshot, type SensorName } from '@campus/core';
+import { useScanSnapshot, type SensorName } from '@campus/core';
 import { ScrollView } from 'react-native';
 
 import { Card, Muted, Row } from '../ui/kit';

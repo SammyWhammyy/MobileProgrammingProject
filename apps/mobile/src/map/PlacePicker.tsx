@@ -45,7 +45,7 @@ export function PlacePicker({
           keyExtractor={(p) => p.id}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 12 }}
-          ListEmptyComponent={<Text style={kit.muted}>Nothing found for "{query}"</Text>}
+          ListEmptyComponent={<Text style={kit.muted}>Nothing found for &quot;{query}&quot;</Text>}
           renderItem={({ item }) => (
             <Pressable
               style={({ pressed }) => [kit.listItem, { opacity: pressed ? 0.6 : 1 }]}
