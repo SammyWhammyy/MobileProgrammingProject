@@ -1,232 +1,132 @@
-import { describeStep, listPlaces, planRoute, type Place, type RouteMode } from '@campus/map';
+import { describeStep, listPlaces, planRoute, type Place } from '@campus/map';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-
+import { useMapBundle } from '../data/MapDataProvider';
 import { FloorMap } from '../map/FloorMap';
 import { PlacePicker } from '../map/PlacePicker';
-import { colors, styles as kit } from '../ui/kit';
-import { useMapBundle } from '../data/MapDataProvider';
+import { colors } from '../ui/kit';
 
-
-
+/** Offline planner. Selecting a step inspects it; it never tracks the user. */
 export function MapScreen() {
-  const bundle = useMapBundle();
-  const { snapshot, svgByFloor } = bundle;
+  const { snapshot, svgByFloor } = useMapBundle();
   const places = useMemo(() => listPlaces(snapshot), [snapshot]);
-
-  const [from, setFrom] = useState<Place | undefined>();
-  const [to, setTo] = useState<Place | undefined>();
-  const [mode, setMode] = useState<RouteMode>('fastest');
+  const [from, setFrom] = useState<Place>();
+  const [to, setTo] = useState<Place>();
   const [picking, setPicking] = useState<'from' | 'to' | null>(null);
   const [floorId, setFloorId] = useState(snapshot.floors[0].id);
-
-  const route = useMemo(
-    () => (from && to && from.nodeId !== to.nodeId ? planRoute(snapshot, from.nodeId, to.nodeId, mode) : null),
-    [snapshot, from, to, mode],
-  );
-  const floor = snapshot.floors.find((f) => f.id === floorId)!;
-  const routeFloors = new Set(route?.segments.map((s) => s.floorId));
-
-  const pick = (place: Place) => {
-    if (picking === 'from') setFrom(place);
-    else setTo(place);
-    const start = picking === 'from' ? place : from;
-    if (start) setFloorId(start.floorId);
-    setPicking(null);
-  };
+  const [focus, setFocus] = useState<string>();
+  const [fit, setFit] = useState(0);
+  const [selectedStep, setSelectedStep] = useState<number>();
+  const same = !!from && !!to && from.nodeId === to.nodeId;
+  const route = useMemo(() => from && to && from.nodeId !== to.nodeId
+    ? planRoute(snapshot, from.nodeId, to.nodeId) : null, [snapshot, from, to]);
+  const floor = snapshot.floors.find((item) => item.id === floorId) ?? snapshot.floors[0];
+  const routeFloors = new Set(route?.segments.map((segment) => segment.floorId));
+  const resetView = () => { setFocus(undefined); setFit((value) => value + 1); };
+  const clearGuidance = () => { setSelectedStep(undefined); resetView(); };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.root}>
       <View style={styles.planner}>
-        <View style={{ flex: 1, gap: 6 }}>
+        <View style={{ flex: 1, gap: 8 }}>
           <PlaceField label="From" place={from} onPress={() => setPicking('from')} />
-          <PlaceField label="To" place={to} placeholder="Where to?" onPress={() => setPicking('to')} />
+          <PlaceField label="To" place={to} onPress={() => setPicking('to')} />
         </View>
-        <Pressable
-          style={styles.swap}
-          accessibilityLabel="Swap start and destination"
-          onPress={() => {
-            setFrom(to);
-            setTo(from);
-          }}
-        >
-          <Text style={styles.swapText}>⇅</Text>
-        </Pressable>
+        <View style={{ gap: 8 }}>
+          <Action title="Swap" disabled={!from && !to} onPress={() => {
+            setFrom(to); setTo(from); if (to) setFloorId(to.floorId); clearGuidance();
+          }} />
+          <Action title="Clear" disabled={!from && !to} onPress={() => {
+            setFrom(undefined); setTo(undefined); clearGuidance();
+          }} />
+        </View>
       </View>
-
-      <View style={styles.modes}>
-        {snapshot.floors.length > 1
-          ? snapshot.floors.map((f) => (
-              <Chip
-                key={f.id}
-                title={`Floor ${f.level}${routeFloors.has(f.id) ? ' •' : ''}`}
-                active={f.id === floorId}
-                onPress={() => setFloorId(f.id)}
-              />
-            ))
-          : null}
-      </View>
-
-      <FloorMap
-        snapshot={snapshot}
-        floor={floor}
-        svg={svgByFloor[floor.id]}
-        route={route}
-        startNodeId={from?.nodeId}
-        goalNodeId={to?.nodeId}
-        fitKey={route}
-      />
-
-      <RoutePanel
-        hasEnds={!!from && !!to}
-        same={!!from && !!to && from.nodeId === to.nodeId}
-        mode={mode}
-        lengthM={route?.lengthM}
-        steps={route?.steps.map((s) => describeStep(s, to?.title)) ?? []}
-        onShowWithStairs={() => setMode('fastest')}
-      />
-
-      <PlacePicker
-        visible={picking !== null}
-        title={picking === 'from' ? 'Start point' : 'Destination'}
-        snapshot={snapshot}
-        places={places}
-        onPick={pick}
-        onClose={() => setPicking(null)}
-      />
-    </View>
-  );
-}
-
-function PlaceField({
-  label,
-  place,
-  placeholder,
-  onPress,
-}: {
-  label: string;
-  place?: Place;
-  placeholder?: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable style={({ pressed }) => [styles.field, { opacity: pressed ? 0.7 : 1 }]} onPress={onPress}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={[styles.fieldValue, !place && { color: colors.muted }]} numberOfLines={1}>
-        {place ? `${place.title} · ${place.subtitle}` : (placeholder ?? 'Choose')}
-      </Text>
-    </Pressable>
-  );
-}
-
-function Chip({ title, active, onPress }: { title: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
-      <Text style={[styles.chipText, active && { color: '#fff' }]}>{title}</Text>
-    </Pressable>
-  );
-}
-
-function RoutePanel({
-  hasEnds,
-  same,
-  mode,
-  lengthM,
-  steps,
-  onShowWithStairs,
-}: {
-  hasEnds: boolean;
-  same: boolean;
-  mode: RouteMode;
-  lengthM?: number;
-  steps: string[];
-  onShowWithStairs: () => void;
-}) {
-  if (!hasEnds) {
-    return (
-      <View style={styles.panel}>
-        <Text style={kit.muted}>Choose a destination to build a route.</Text>
-      </View>
-    );
-  }
-  if (same) {
-    return (
-      <View style={styles.panel}>
-        <Text style={kit.muted}>Start and destination are the same place.</Text>
-      </View>
-    );
-  }
-  if (lengthM === undefined) {
-    return (
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>
-          {mode === 'accessible' ? 'No route without stairs' : 'No route found'}
-        </Text>
-        {mode === 'accessible' ? (
-          <Pressable onPress={onShowWithStairs}>
-            <Text style={{ color: colors.accent, marginTop: 4 }}>Show route with stairs</Text>
+      <View style={styles.floorRow}>
+        {snapshot.floors.map((item) => (
+          <Pressable key={item.id} accessibilityRole="button"
+            accessibilityLabel={`${item.name}${routeFloors.has(item.id) ? ', on route' : ''}`}
+            accessibilityState={{ selected: item.id === floor.id }}
+            onPress={() => { setFloorId(item.id); setSelectedStep(undefined); resetView(); }}
+            style={[styles.floor, item.id === floor.id && styles.floorActive]}>
+            <Text style={[styles.floorText, item.id === floor.id && { color: colors.text }]}>
+              {item.name}{routeFloors.has(item.id) ? ' •' : ''}
+            </Text>
           </Pressable>
-        ) : null}
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.panel}>
-      <Text style={styles.panelTitle}>
-        Schematic route preview
-      </Text>
-      <ScrollView style={{ maxHeight: 140 }}>
-        {steps.map((s, i) => (
-          <Text key={i} style={styles.step}>
-            {i + 1}. {s}
-          </Text>
         ))}
-      </ScrollView>
+      </View>
+      <View style={{ flex: 1 }}>
+        <FloorMap snapshot={snapshot} floor={floor} svg={svgByFloor[floor.id]}
+          route={route} startNodeId={from?.nodeId} goalNodeId={to?.nodeId}
+          fitKey={fit} focusNodeId={focus} />
+        <View style={styles.reset}><Action title="Fit map" onPress={resetView} /></View>
+      </View>
+      <View style={styles.panel}>
+        <Text style={styles.hint}>Schematic map · Scale and doors need verification</Text>
+        {!from || !to ? <Text style={styles.message}>Choose your starting place and destination.</Text>
+          : same ? <Text style={styles.message}>You selected the same place. Choose another destination.</Text>
+          : !route ? <Text style={styles.message}>No route found. Try another starting place or destination.</Text>
+          : <>
+            <Text style={styles.routeTitle}>{from.title} → {to.title}</Text>
+            <Text style={styles.hint}>{routeFloors.size} {routeFloors.size === 1 ? 'floor' : 'floors'} · Tap a step to view it</Text>
+            <ScrollView style={styles.steps} contentContainerStyle={{ paddingVertical: 4 }}>
+              {route.steps.map((step, index) => (
+                <Pressable key={index} accessibilityRole="button"
+                  accessibilityState={{ selected: selectedStep === index }}
+                  onPress={() => {
+                    setSelectedStep(index); setFloorId(step.floorId); setFocus(step.nodeId); setFit((value) => value + 1);
+                  }} style={[styles.step, index === selectedStep && styles.stepActive]}>
+                  <Text style={styles.stepText}>{index + 1}. {step.kind === 'straight' ? 'Follow the highlighted corridor' : describeStep(step, to.title)}</Text>
+                  {step.kind === 'changeFloor' && <Action title={`Open floor ${step.toLevel}`} onPress={() => {
+                    setFloorId(step.toFloorId); resetView();
+                  }} />}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>}
+      </View>
+      <PlacePicker visible={picking !== null} title={picking === 'from' ? 'Choose your starting place' : 'Choose destination'}
+        snapshot={snapshot} places={places} onClose={() => setPicking(null)} onPick={(place) => {
+          if (picking === 'from') { setFrom(place); setFloorId(place.floorId); }
+          else { setTo(place); setFloorId(from?.floorId ?? place.floorId); }
+          setPicking(null); clearGuidance();
+        }} />
     </View>
   );
+}
+
+function PlaceField({ label, place, onPress }: { label: string; place?: Place; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${place?.title ?? 'Choose place'}`}
+    onPress={onPress} style={styles.field}>
+    <Text style={styles.hint}>{label}</Text>
+    <Text style={styles.fieldValue} numberOfLines={1}>{place ? `${place.title} · ${place.subtitle}` : 'Choose place'}</Text>
+  </Pressable>;
+}
+
+function Action({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled}
+    onPress={onPress} style={[styles.action, disabled && { opacity: 0.4 }]}>
+    <Text style={styles.actionText}>{title}</Text>
+  </Pressable>;
 }
 
 const styles = StyleSheet.create({
-  planner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 8 },
-  field: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  fieldLabel: { color: colors.muted, fontSize: 11 },
-  fieldValue: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  swap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  swapText: { color: colors.text, fontSize: 20 },
-  modes: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chipText: { color: colors.text, fontWeight: '600' },
-  panel: {
-    backgroundColor: colors.card,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  panelTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  step: { color: colors.text, fontSize: 14, paddingVertical: 2 },
+  root: { flex: 1 },
+  planner: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 12 },
+  field: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, minHeight: 58 },
+  hint: { color: colors.muted, fontSize: 12 },
+  fieldValue: { color: colors.text, fontSize: 15, fontWeight: '600', marginTop: 3 },
+  action: { minHeight: 44, minWidth: 60, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  actionText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  floorRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
+  floor: { flex: 1, minHeight: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  floorActive: { backgroundColor: colors.card, borderColor: colors.accent },
+  floorText: { color: colors.muted, fontWeight: '600' },
+  reset: { position: 'absolute', bottom: 10, right: 16 },
+  panel: { backgroundColor: colors.card, padding: 14, gap: 7, borderTopWidth: 1, borderTopColor: colors.border },
+  message: { color: colors.text, fontSize: 14, paddingVertical: 8 },
+  routeTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  steps: { maxHeight: 160 },
+  step: { minHeight: 44, justifyContent: 'center', padding: 9, borderRadius: 8, gap: 8 },
+  stepActive: { backgroundColor: colors.bg },
+  stepText: { color: colors.text, fontSize: 14, lineHeight: 20 },
 });
-
