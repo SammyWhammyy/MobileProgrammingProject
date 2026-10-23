@@ -1,8 +1,8 @@
 # Campus Navigator
 
-An offline Android indoor navigation MVP for three floors of HAMK Building C.
-Choose a starting place and destination, search rooms, and inspect a route across
-floors. The application does not determine or track your location.
+An Android indoor navigation MVP for three floors of HAMK Building C. The map
+and routing work offline; room notes are stored by a small local Node.js API.
+The application does not determine or track your location.
 
 ## MVP scope
 
@@ -11,10 +11,11 @@ floors. The application does not determine or track your location.
 - Directions collapsed by default, with a larger expandable step list.
 - Local shortest-path routing with staircase transitions and selectable steps.
 - SQLite storage for floor plans, nodes, edges, rooms, and map revision metadata.
+- Room-note create, read, update, and delete through a Node.js REST API.
 - English interface, documentation, and new code comments.
 
-Saved rooms, QR scanning, cloud sync, notes, accounts, an admin editor, route
-history, and automatic positioning are deferred. A lift is visible in the source
+Saved rooms, QR scanning, cloud sync, accounts, an admin editor, route history,
+and automatic positioning are deferred. A lift is visible in the source
 photographs but no accessible route is advertised until its access is verified.
 
 The map scale and door anchors are provisional. The UI deliberately omits meter
@@ -24,18 +25,23 @@ access is unclear; C304-305 is one combined place searchable by either number.
 
 ## Setup
 
-Use Node.js 24 LTS and npm for the included real SQLite tests. Install from the
-repository root:
+Use Node.js 24 LTS and npm. Install from the repository root:
 
 ```bash
 npm ci
-npm run mobile:mock
 ```
 
-The historical `mobile:mock` command opens Expo Go; map data is the Building C
-dataset, not simulated positioning. Use an Expo Go version compatible with the
-pinned Expo SDK 57, or build the development client below. The repository keeps
-the original Android application ID to allow updating an existing installation.
+In two terminals, run `npm run server` and `npm run mobile:mock` respectively.
+The first starts the API; the second opens Expo Go. Map
+data is the Building C dataset, not simulated positioning. To use notes on a USB
+connected Android phone, set `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000` in
+`apps/mobile/.env.local`, then run `adb reverse tcp:3000 tcp:3000`. Also reverse
+port 8081 for Expo Go. For Wi-Fi, set the API URL to the computer's LAN address
+and start the server with `HOST=0.0.0.0 npm run server`. See
+[Room notes API](docs/NOTES-API.md) for exact setup details. Use an Expo Go
+version compatible with the pinned Expo SDK 57, or build the development client
+below. The repository keeps the original Android application ID to allow
+updating an existing installation.
 
 For an Android development build, install JDK 17 and the Android SDK, enable USB
 debugging on the phone, and authorize the computer:
@@ -89,14 +95,21 @@ they do not replace Android runtime tests. Follow the [device checklist](docs/AN
 | SVG rendering, gestures, place picker, visual tokens | UI | `apps/mobile/src/map`, `src/ui` |
 
 The [public contract](docs/CORE-CONTRACT.md) keeps visual components independent
-of persistence. The provider opens SQLite, atomically seeds changed bundled data,
-reads the map back, validates it, and closes the connection. Components mount only
-after successful loading; failures expose a retry action. No network is required.
+of map persistence. The provider opens SQLite, atomically seeds changed bundled
+data, reads the map back, validates it, and closes the connection. The notes API
+is a separate service under `apps/server`; notes are atomically written to
+`apps/server/data/notes.json`. Map and routing screens remain usable when the API
+is unavailable.
 
 Map tables contain IDs and relational references plus JSON payloads preserving
 the domain types. Prepared parameter bindings are used for writes. A canonical
 seed revision detects changes even if a manual data version bump is forgotten.
-Replacing these tables never deletes user content because the MVP stores none.
+Replacing map tables does not delete server-stored notes.
+
+The app's notes list/editor use `apps/mobile/src/data/notesApi.ts` and the REST
+endpoints documented in [NOTES-API.md](docs/NOTES-API.md). The server uses only
+Node built-ins and needs no extra npm dependencies. It has no authentication;
+keep it on a trusted development network.
 
 Path search uses A* with a zero heuristic (Dijkstra ordering). This remains exact
 when independent floor drawings use different coordinate origins. Route costs

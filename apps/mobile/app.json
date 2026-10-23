@@ -35,7 +35,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
       "expo-sqlite",
       "expo-router"
     ]

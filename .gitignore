@@ -42,3 +42,5 @@ yarn-error.*
 apps/*/ios
 apps/*/android
 packages/*/android/build
+apps/server/data/notes.json
+apps/server/data/notes.json.*.tmp

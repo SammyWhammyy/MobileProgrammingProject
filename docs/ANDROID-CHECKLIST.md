@@ -23,5 +23,19 @@ details and attach observations to the corresponding Trello cards.
 - [ ] Verify no saved rooms, Wi-Fi, BLE, recording, admin, or QR screens appear.
 - [ ] Compare actual doors, stairs, and corridors with MAP-VERIFICATION.md.
 
+## Notes API
+
+- [ ] Start the Node server and connect the phone using `docs/NOTES-API.md`.
+- [ ] Create a note for C102 titled Bring an adapter with nonempty text.
+- [ ] Confirm the card appears, opens the complete record, and returns to the list after save.
+- [ ] Edit the title, body, and room to C339; confirm the same record changes.
+- [ ] Restart the app and confirm the note remains on the server.
+- [ ] Reject a missing room, blank title, or whitespace-only text.
+- [ ] Verify title/body limits, scrolling, and keyboard visibility.
+- [ ] Cancel and confirm delete; verify it remains deleted after restart.
+- [ ] Stop the server: notes show a connection error and the map remains usable.
+- [ ] Restart the server: existing notes load from its JSON data file.
+- [ ] Confirm an unavailable old room can be changed to a current room.
+
 Passing automated routing and SQLite tests does not establish real-world door
-accuracy or validate gestures on a physical device.
+accuracy, API availability, or validate gestures on a physical device.
